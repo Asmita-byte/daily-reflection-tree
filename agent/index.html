@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Reflection Tree</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0d0d14;
+      --card-bg:     #13131e;
+      --border:      #252538;
+      --text:        #e6e1d8;
+      --muted:       #7d7a8a;
+      --accent1:     #c9a96e;   /* gold  – Axis 1 */
+      --accent2:     #7eb87e;   /* green – Axis 2 */
+      --accent3:     #9b8cc9;   /* purple– Axis 3 */
+      --accent-setup:#5b7fa6;   /* blue  – Setup/End */
+      --btn-bg:      #1e1e2e;
+      --btn-hover:   #2a2a40;
+      --btn-border:  #383850;
+      --btn-active-border: var(--accent1);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Georgia', 'Times New Roman', serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem 1rem 4rem;
+    }
+
+    /* ── Progress Bar ── */
+    #progress {
+      width: 100%;
+      max-width: 640px;
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 2.5rem;
+      font-family: system-ui, sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .prog-step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      opacity: 0.3;
+      transition: opacity 0.4s;
+    }
+
+    .prog-step.active  { opacity: 1; }
+    .prog-step.done    { opacity: 0.65; }
+
+    .prog-bar {
+      height: 3px;
+      border-radius: 2px;
+      background: var(--border);
+      transition: background 0.4s;
+    }
+
+    .prog-step.active .prog-bar,
+    .prog-step.done  .prog-bar  { background: var(--step-color, var(--accent1)); }
+
+    .prog-label { color: var(--muted); }
+    .prog-step.active .prog-label { color: var(--step-color, var(--accent1)); }
+
+    /* ── Card ── */
+    #card {
+      width: 100%;
+      max-width: 640px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2.5rem 2.5rem 2rem;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    #card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Type pill ── */
+    .type-pill {
+      display: inline-block;
+      font-family: system-ui, sans-serif;
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 20px;
+      border: 1px solid;
+      margin-bottom: 1.4rem;
+    }
+
+    /* ── Node text ── */
+    .node-text {
+      font-size: 1.15rem;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      color: var(--text);
+    }
+
+    .node-text.large {
+      font-size: 1.25rem;
+    }
+
+    /* ── Options ── */
+    .options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-top: 1.8rem;
+    }
+
+    .opt-btn {
+      background: var(--btn-bg);
+      border: 1px solid var(--btn-border);
+      border-radius: 8px;
+      color: var(--text);
+      cursor: pointer;
+      font-family: 'Georgia', serif;
+      font-size: 0.95rem;
+      line-height: 1.55;
+      padding: 0.85rem 1.1rem;
+      text-align: left;
+      transition: background 0.18s, border-color 0.18s, transform 0.12s;
+    }
+
+    .opt-btn:hover {
+      background: var(--btn-hover);
+      border-color: var(--axis-color, var(--accent1));
+      transform: translateX(3px);
+    }
+
+    .opt-btn:active {
+      transform: translateX(1px) scale(0.995);
+    }
+
+    /* ── Continue button ── */
+    .continue-btn {
+      margin-top: 1.8rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: system-ui, sans-serif;
+      font-size: 0.85rem;
+      letter-spacing: 0.06em;
+      padding: 0.7rem 1.4rem;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .continue-btn:hover {
+      border-color: var(--axis-color, var(--accent1));
+      color: var(--axis-color, var(--accent1));
+    }
+
+    /* ── Reflection ── */
+    .reflection-text {
+      font-size: 1.05rem;
+      line-height: 1.8;
+      color: var(--text);
+      white-space: pre-wrap;
+      border-left: 3px solid var(--axis-color, var(--accent1));
+      padding-left: 1.2rem;
+      margin-top: 0.5rem;
+    }
+
+    /* ── Summary ── */
+    .summary-section {
+      margin-top: 1.4rem;
+    }
+
+    .summary-axis {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 0.8rem;
+    }
+
+    .summary-axis-label {
+      font-family: system-ui, sans-serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .summary-axis-text {
+      font-size: 0.97rem;
+      line-height: 1.65;
+      color: var(--text);
+    }
+
+    .summary-closing {
+      margin-top: 1.4rem;
+      font-size: 1rem;
+      line-height: 1.75;
+      color: var(--muted);
+      white-space: pre-wrap;
+    }
+
+    .summary-word {
+      color: var(--accent1);
+      font-style: italic;
+    }
+
+    /* ── End ── */
+    .end-text {
+      font-size: 1.3rem;
+      line-height: 2;
+      text-align: center;
+      color: var(--muted);
+      white-space: pre-wrap;
+      padding: 1rem 0;
+    }
+
+    /* ── Restart ── */
+    .restart-btn {
+      display: block;
+      margin: 2rem auto 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      cursor: pointer;
+      font-family: system-ui, sans-serif;
+      font-size: 0.8rem;
+      letter-spacing: 0.07em;
+      padding: 0.6rem 1.2rem;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .restart-btn:hover {
+      border-color: var(--accent-setup);
+      color: var(--accent-setup);
+    }
+
+    /* ── Error ── */
+    #error {
+      display: none;
+      width: 100%;
+      max-width: 640px;
+      background: #1e1010;
+      border: 1px solid #4a2020;
+      border-radius: 12px;
+      padding: 1.8rem;
+      font-family: system-ui, sans-serif;
+      line-height: 1.6;
+    }
+
+    #error h2 { color: #e06060; margin-bottom: 0.8rem; font-size: 1rem; }
+    #error code { background: #2a1818; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.85rem; }
+    #error pre { background: #1a1010; border-radius: 6px; padding: 1rem; margin-top: 0.8rem; overflow-x: auto; font-size: 0.8rem; color: #c08080; }
+  </style>
+</head>
+<body>
+
+  <div id="progress">
+    <div class="prog-step" id="step-setup" style="--step-color: var(--accent-setup)">
+      <div class="prog-bar"></div>
+      <div class="prog-label">Setup</div>
+    </div>
+    <div class="prog-step" id="step-axis1" style="--step-color: var(--accent1)">
+      <div class="prog-bar"></div>
+      <div class="prog-label">Locus</div>
+    </div>
+    <div class="prog-step" id="step-axis2" style="--step-color: var(--accent2)">
+      <div class="prog-bar"></div>
+      <div class="prog-label">Orientation</div>
+    </div>
+    <div class="prog-step" id="step-axis3" style="--step-color: var(--accent3)">
+      <div class="prog-bar"></div>
+      <div class="prog-label">Radius</div>
+    </div>
+  </div>
+
+  <div id="card"></div>
+  <div id="error"></div>
+
+  <script>
+  // ─────────────────────────────────────────────
+  //  ReflectionAgent — pure deterministic engine
+  //  No LLM calls. No randomness. State machine.
+  // ─────────────────────────────────────────────
+  class ReflectionAgent {
+    constructor(tree) {
+      this.tree = tree;
+      this.nodeMap = {};
+      tree.nodes.forEach(n => { this.nodeMap[n.id] = n; });
+      this.reset();
+    }
+
+    reset() {
+      this.state = {
+        axis1: { internal: 0, external: 0 },
+        axis2: { contribution: 0, entitlement: 0 },
+        axis3: { self: 0, altro: 0 },
+        answers: {}     // nodeId → answer label (for interpolation)
+      };
+      this.currentId = 'START';
+      this._skipDecisions();
+    }
+
+    get currentNode() { return this.nodeMap[this.currentId]; }
+
+    // Called when user selects an option on a question node
+    selectOption(option) {
+      const node = this.currentNode;
+      this.state.answers[node.id] = option.label;
+      if (option.signal) this._recordSignal(option.signal);
+      this.currentId = option.next;
+      this._skipDecisions();
+    }
+
+    // Called when user clicks Continue on non-question nodes
+    advance() {
+      const node = this.currentNode;
+      if (node.next) {
+        this.currentId = node.next;
+        this._skipDecisions();
+      }
+    }
+
+    // Silently walk through all decision nodes
+    _skipDecisions() {
+      while (this.currentNode && this.currentNode.type === 'decision') {
+        this.currentId = this._resolveDecision(this.currentNode);
+      }
+    }
+
+    _recordSignal(signal) {
+      const [axis, pole] = signal.split(':');
+      if (this.state[axis] !== undefined && this.state[axis][pole] !== undefined) {
+        this.state[axis][pole]++;
+      }
+    }
+
+    _resolveDecision(node) {
+      for (const route of node.routes) {
+        if (route.condition.type === 'default') continue;
+        if (this._evalCondition(route.condition)) return route.next;
+      }
+      // fallback to default route
+      for (const route of node.routes) {
+        if (route.condition.type === 'default') return route.next;
+      }
+      throw new Error('No matching route in decision node: ' + node.id);
+    }
+
+    _evalCondition(cond) {
+      if (cond.type === 'answer') {
+        const ans = this.state.answers[cond.node];
+        return ans !== undefined && cond.answer_in.includes(ans);
+      }
+      if (cond.type === 'signal') {
+        const axisState = this.state[cond.axis];
+        if (!axisState) return false;
+        const m = cond.compare.match(/^(\w+)\s*(>|<|>=|<=|==)\s*(\w+)$/);
+        if (!m) return false;
+        const lv = axisState[m[1]] || 0;
+        const rv = axisState[m[3]] || 0;
+        switch (m[2]) {
+          case '>':  return lv > rv;
+          case '<':  return lv < rv;
+          case '>=': return lv >= rv;
+          case '<=': return lv <= rv;
+          case '==': return lv === rv;
+        }
+      }
+      return false;
+    }
+
+    // Replace {NodeId.answer} and {axisN.summary} placeholders
+    interpolate(text) {
+      if (!text) return '';
+      return text
+        .replace(/\{(\w+)\.answer\}/g, (_, nodeId) =>
+          this.state.answers[nodeId] || `[${nodeId}]`)
+        .replace(/\{(axis\d)\.summary\}/g, (_, axisKey) => {
+          const axisState = this.state[axisKey];
+          const templates = this.tree.state_templates[axisKey];
+          if (!axisState || !templates) return `[${axisKey}]`;
+          const dominant = this._getDominant(axisState);
+          return templates[dominant] || `[${axisKey}:${dominant}]`;
+        });
+    }
+
+    _getDominant(axisState) {
+      const keys = Object.keys(axisState);
+      if (keys.length < 2) return 'mixed';
+      const [k1, k2] = keys;
+      if (axisState[k1] > axisState[k2]) return k1;
+      if (axisState[k2] > axisState[k1]) return k2;
+      return 'mixed';
+    }
+
+    getAxisForNode(nodeId) {
+      const node = this.nodeMap[nodeId];
+      return node ? (node.axis || 0) : 0;
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  //  UI
+  // ─────────────────────────────────────────────
+  const AXIS_COLORS = {
+    0: 'var(--accent-setup)',
+    1: 'var(--accent1)',
+    2: 'var(--accent2)',
+    3: 'var(--accent3)'
+  };
+
+  const AXIS_LABELS = { 0: 'Setup', 1: 'Axis 1: Locus', 2: 'Axis 2: Orientation', 3: 'Axis 3: Radius' };
+  const PROGRESS_STEPS = {
+    'setup': [null, 'START'],
+    'axis1': ['BRIDGE_1_2', 'A1_OPEN', 'A1_Q2_POS', 'A1_Q2_NEG', 'A1_Q3_INT', 'A1_Q3_EXT', 'A1_R_INT', 'A1_R_EXT', 'A1_R_MIX'],
+    'axis2': ['BRIDGE_2_3', 'A2_OPEN', 'A2_Q2_CONTRIB', 'A2_Q2_ENTITLE', 'A2_R_CONTRIB', 'A2_R_ENTITLE', 'A2_R_MIX'],
+    'axis3': ['SUMMARY', 'END', 'A3_OPEN', 'A3_Q2_SELF', 'A3_Q2_ALTRO', 'A3_Q3_SELF', 'A3_Q3_ALTRO', 'A3_R_SELF', 'A3_R_ALTRO', 'A3_R_MIX']
+  };
+
+  let agent;
+  const card = document.getElementById('card');
+
+  function getProgressStep(nodeId) {
+    for (const [step, ids] of Object.entries(PROGRESS_STEPS)) {
+      if (ids && ids.includes(nodeId)) return step;
+    }
+    return 'setup';
+  }
+
+  function updateProgress(nodeId) {
+    const stepOrder = ['setup', 'axis1', 'axis2', 'axis3'];
+    const current = getProgressStep(nodeId);
+    const currentIdx = stepOrder.indexOf(current);
+    stepOrder.forEach((step, i) => {
+      const el = document.getElementById('step-' + step);
+      if (!el) return;
+      el.classList.remove('active', 'done');
+      if (i < currentIdx) el.classList.add('done');
+      else if (i === currentIdx) el.classList.add('active');
+    });
+  }
+
+  function show(html, nodeId) {
+    card.classList.remove('visible');
+    setTimeout(() => {
+      card.innerHTML = html;
+      card.classList.add('visible');
+      updateProgress(nodeId || '');
+    }, 180);
+  }
+
+  function getColor(axis) {
+    return AXIS_COLORS[axis] || AXIS_COLORS[0];
+  }
+
+  function pill(label, axis) {
+    const color = getColor(axis);
+    return `<span class="type-pill" style="color:${color};border-color:${color}">${label}</span>`;
+  }
+
+  function renderCurrentNode() {
+    const node = agent.currentNode;
+    if (!node) return;
+
+    const axis = node.axis || 0;
+    const color = getColor(axis);
+    const axisLabel = AXIS_LABELS[axis] || 'Reflection';
+
+    switch (node.type) {
+      case 'start':
+        renderStart(node, color);
+        break;
+      case 'question':
+        renderQuestion(node, axis, color);
+        break;
+      case 'reflection':
+        renderReflection(node, axisLabel, color);
+        break;
+      case 'bridge':
+        renderBridge(node, color);
+        break;
+      case 'summary':
+        renderSummary(node);
+        break;
+      case 'end':
+        renderEnd(node);
+        break;
+    }
+  }
+
+  function renderStart(node, color) {
+    const text = agent.interpolate(node.text);
+    show(`
+      ${pill('Begin', 0)}
+      <div class="node-text large">${esc(text)}</div>
+      <button class="continue-btn" style="--axis-color:${color}" onclick="continueNode()">
+        Begin reflection →
+      </button>
+    `, node.id);
+  }
+
+  function renderQuestion(node, axis, color) {
+    const text = agent.interpolate(node.text);
+    const optHtml = node.options.map((opt, i) => `
+      <button class="opt-btn" style="--axis-color:${color}"
+              onclick="selectOption(${i})">${esc(opt.label)}</button>
+    `).join('');
+    show(`
+      ${pill(AXIS_LABELS[axis] || 'Question', axis)}
+      <div class="node-text">${esc(text)}</div>
+      <div class="options">${optHtml}</div>
+    `, node.id);
+  }
+
+  function renderReflection(node, axisLabel, color) {
+    const text = agent.interpolate(node.text);
+    show(`
+      ${pill('Reflection · ' + axisLabel, node.axis || 0)}
+      <div class="reflection-text" style="--axis-color:${color}">${esc(text)}</div>
+      <button class="continue-btn" style="--axis-color:${color}" onclick="continueNode()">
+        Continue →
+      </button>
+    `, node.id);
+  }
+
+  function renderBridge(node, color) {
+    const text = agent.interpolate(node.text);
+    show(`
+      ${pill('Transition', 0)}
+      <div class="node-text" style="color:var(--muted);font-style:italic">${esc(text)}</div>
+      <button class="continue-btn" style="--axis-color:${color}" onclick="continueNode()">
+        Continue →
+      </button>
+    `, node.id);
+  }
+
+  function renderSummary(node) {
+    // Parse summary text into structured parts
+    const rawText = agent.interpolate(node.text);
+
+    // Extract axis summaries from state_templates
+    const s = agent.state;
+    const t = agent.tree.state_templates;
+
+    function getDom(axisKey) {
+      const as = s[axisKey];
+      const keys = Object.keys(as);
+      if (keys.length < 2) return 'mixed';
+      const [k1, k2] = keys;
+      if (as[k1] > as[k2]) return k1;
+      if (as[k2] > as[k1]) return k2;
+      return 'mixed';
+    }
+
+    const a1dom = getDom('axis1'), a2dom = getDom('axis2'), a3dom = getDom('axis3');
+    const a1text = t.axis1[a1dom] || '';
+    const a2text = t.axis2[a2dom] || '';
+    const a3text = t.axis3[a3dom] || '';
+    const word = s.answers['A1_OPEN'] || '—';
+
+    show(`
+      ${pill('Summary', 0)}
+      <div class="summary-section">
+        <div class="summary-axis" style="border-color: var(--accent1)22">
+          <div class="summary-axis-label" style="color:var(--accent1)">Axis 1 — Locus</div>
+          <div class="summary-axis-text">${esc(a1text)}</div>
+        </div>
+        <div class="summary-axis" style="border-color: var(--accent2)22">
+          <div class="summary-axis-label" style="color:var(--accent2)">Axis 2 — Orientation</div>
+          <div class="summary-axis-text">${esc(a2text)}</div>
+        </div>
+        <div class="summary-axis" style="border-color: var(--accent3)22">
+          <div class="summary-axis-label" style="color:var(--accent3)">Axis 3 — Radius</div>
+          <div class="summary-axis-text">${esc(a3text)}</div>
+        </div>
+        <div class="summary-closing">
+You described today as <span class="summary-word">${esc(word)}</span>.
+
+Same day. Three angles. A little more of it visible now.</div>
+      </div>
+      <button class="continue-btn" onclick="continueNode()">Close →</button>
+    `, node.id);
+  }
+
+  function renderEnd(node) {
+    const text = agent.interpolate(node.text);
+    show(`
+      <div class="end-text">${esc(text)}</div>
+      <button class="restart-btn" onclick="restartSession()">Start a new reflection</button>
+    `, node.id);
+  }
+
+  // ─────────────────────────────────────────────
+  //  Event handlers
+  // ─────────────────────────────────────────────
+  function selectOption(index) {
+    const node = agent.currentNode;
+    agent.selectOption(node.options[index]);
+    renderCurrentNode();
+  }
+
+  function continueNode() {
+    agent.advance();
+    renderCurrentNode();
+  }
+
+  function restartSession() {
+    agent.reset();
+    card.classList.remove('visible');
+    setTimeout(renderCurrentNode, 200);
+  }
+
+  // ─────────────────────────────────────────────
+  //  Escape HTML
+  // ─────────────────────────────────────────────
+  function esc(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/\n/g, '<br>');
+  }
+
+  // ─────────────────────────────────────────────
+  //  Initialise — load tree from JSON file
+  // ─────────────────────────────────────────────
+  async function init() {
+    try {
+      const res = await fetch('../tree/reflection-tree.json');
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const tree = await res.json();
+      agent = new ReflectionAgent(tree);
+      renderCurrentNode();
+    } catch (err) {
+      showError(err);
+    }
+  }
+
+  function showError(err) {
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('error').innerHTML = `
+      <h2>⚠ Could not load reflection-tree.json</h2>
+      <p>This app loads the tree from <code>../tree/reflection-tree.json</code>.
+      Browsers block local file requests for security, so you need to serve the project
+      via a local HTTP server.</p>
+      <p style="margin-top:0.8rem"><strong>Quick start:</strong></p>
+      <pre>cd reflection-tree
+python3 -m http.server 8000
+# then open http://localhost:8000/agent/index.html</pre>
+      <p style="margin-top:0.8rem; color:var(--muted); font-size:0.85rem">
+      Technical error: ${err.message}</p>
+    `;
+  }
+
+  init();
+  </script>
+</body>
+</html>
